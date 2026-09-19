@@ -1,5 +1,3 @@
-import { useNavigate } from 'react-router-dom';
-
 function GoogleIcon() {
     return (
         <svg className="h-5 w-5" viewBox="0 0 24 24" aria-hidden="true">
@@ -32,8 +30,6 @@ function GitHubIcon() {
 }
 
 export default function SocialButtons() {
-    const navigate = useNavigate();
-
     return (
         <>
             <div className="my-6 flex items-center gap-3">
@@ -45,7 +41,7 @@ export default function SocialButtons() {
             <div className="grid grid-cols-2 gap-3">
                 <button
                     type="button"
-                    onClick={() => navigate('/auth/google/redirect')}
+                    onClick={() => { window.location.href = '/auth/google/redirect'; }}
                     className="flex items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
                 >
                     <GoogleIcon />
@@ -53,7 +49,7 @@ export default function SocialButtons() {
                 </button>
                 <button
                     type="button"
-                    onClick={() => navigate('/auth/github/redirect')}
+                    onClick={() => { window.location.href = '/auth/github/redirect'; }}
                     className="flex items-center justify-center gap-2 rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-slate-800"
                 >
                     <GitHubIcon />

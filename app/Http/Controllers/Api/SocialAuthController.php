@@ -2,78 +2,90 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Http\Controllers\Controller;
 use App\Models\User;
-use App\Services\OAuth2Service;
-use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
-use Illuminate\Validation\ValidationException;
-use RuntimeException;
-use App\Http\Controllers\Controller;
+use Laravel\Socialite\Facades\Socialite;
+use Laravel\Socialite\Two\InvalidStateException;
+use Symfony\Component\HttpFoundation\Response;
+use Throwable;
 
 class SocialAuthController extends Controller
 {
-    public function redirect(string $provider)
-    {
-        abort_unless(in_array($provider, ['github', 'google'], true), 404);
+    protected array $supportedProviders = ['github', 'google'];
 
-        try {
-            $url = app(OAuth2Service::class)->redirectUrl($provider);
-        } catch (RuntimeException) {
+    public function redirect(string $provider): Response
+    {
+        abort_unless(in_array($provider, $this->supportedProviders, true), 404);
+
+        if (! $this->isConfigured($provider)) {
             return redirect('/login?oauth_error=social_not_configured');
         }
 
-        return redirect()->away($url);
+        try {
+            return Socialite::driver($provider)->redirect();
+        } catch (Throwable) {
+            return redirect('/login?oauth_error=social_not_configured');
+        }
     }
 
-    public function callback(string $provider, Request $request)
+    public function callback(string $provider, Request $request): Response
     {
-        abort_unless(in_array($provider, ['github', 'google'], true), 404);
+        abort_unless(in_array($provider, $this->supportedProviders, true), 404);
 
-        $state = $request->query('state');
-        $expected = session('oauth_state');
-
-        if (! $state || ! $expected || ! hash_equals($state, $expected)) {
-            return redirect('/login?oauth_error=invalid_state');
+        if (! $this->isConfigured($provider)) {
+            return redirect('/login?oauth_error=social_not_configured');
         }
 
-        session()->forget('oauth_state');
-
-        try {
-            $data = app(OAuth2Service::class)->user($provider, $request->query('code'));
-        } catch (RuntimeException) {
-            return redirect('/login?oauth_error=social_not_configured');
-        } catch (\Exception) {
+        if ($request->has('error') || ! $request->has('code')) {
             return redirect('/login?oauth_error=oauth_failed');
         }
 
-        if (empty($data['email'])) {
+        try {
+            $socialUser = Socialite::driver($provider)->user();
+        } catch (InvalidStateException) {
+            return redirect('/login?oauth_error=invalid_state');
+        } catch (Throwable) {
+            return redirect('/login?oauth_error=oauth_failed');
+        }
+
+        $email = $socialUser->getEmail();
+
+        if (empty($email)) {
             return redirect('/login?oauth_error=missing_email');
         }
 
-        $user = User::where('provider', $provider)->where('provider_id', $data['id'])->first();
+        $providerId = (string) $socialUser->getId();
+        $name = $socialUser->getName()
+            ?? $socialUser->getNickname()
+            ?? ($provider === 'github' ? 'GitHub User' : 'Google User');
+        $avatarUrl = $socialUser->getAvatar();
+
+        $user = User::where('provider', $provider)->where('provider_id', $providerId)->first();
 
         if (! $user) {
-            $user = User::where('email', $data['email'])->first();
+            $user = User::where('email', $email)->first();
         }
 
         if ($user) {
             $user->update([
                 'provider' => $provider,
-                'provider_id' => $data['id'],
-                'provider_avatar_url' => $data['avatar_url'],
-                'email_verified_at' => now(),
+                'provider_id' => $providerId,
+                'provider_avatar_url' => $avatarUrl,
+                'email_verified_at' => $user->email_verified_at ?? now(),
             ]);
         } else {
             $user = User::create([
-                'name' => $data['name'],
-                'email' => $data['email'],
+                'name' => $name,
+                'email' => $email,
                 'password' => Hash::make(Str::random(40)),
                 'role' => User::ROLE_USER,
+                'is_active' => true,
                 'provider' => $provider,
-                'provider_id' => $data['id'],
-                'provider_avatar_url' => $data['avatar_url'],
+                'provider_id' => $providerId,
+                'provider_avatar_url' => $avatarUrl,
                 'email_verified_at' => now(),
                 'referral_code' => $this->uniqueReferralCode(),
             ]);
@@ -86,6 +98,14 @@ class SocialAuthController extends Controller
         $token = $user->createToken('auth-token')->plainTextToken;
 
         return redirect(config('app.url').'/oauth/callback?token='.$token.'&email='.urlencode($user->email));
+    }
+
+    protected function isConfigured(string $provider): bool
+    {
+        $config = config("services.{$provider}");
+
+        return ! empty($config['client_id'])
+            && ! empty($config['client_secret']);
     }
 
     private function uniqueReferralCode(): string

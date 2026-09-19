@@ -25,21 +25,21 @@ export default function App() {
                     <Route path="/forgot-password" element={<ForgotPassword />} />
                     <Route path="/reset-password" element={<ResetPassword />} />
                     <Route path="/store" element={<Store />} />
-
-                    <Route element={<ProtectedRoute />}>
-                    <Route element={<Layout />}>
-                        <Route path="/dashboard" element={<Dashboard />} />
-                        <Route path="/tools" element={<Tools />} />
-                        <Route path="/tools/:id" element={<ToolDetail />} />
-                        <Route path="/users" element={<Users />} />
-                        <Route path="/revenue" element={<Analytics />} />
-                        <Route path="/settings" element={<Settings />} />
-
-                        <Route path="/" element={<Navigate to="/dashboard" replace />} />
-                    </Route>
-
+                    <Route path="/oauth/callback" element={<OAuthCallback />} />
                     <Route path="/auth/google/callback" element={<OAuthCallback />} />
                     <Route path="/auth/github/callback" element={<OAuthCallback />} />
+
+                    <Route element={<ProtectedRoute />}>
+                        <Route element={<Layout />}>
+                            <Route path="/dashboard" element={<Dashboard />} />
+                            <Route path="/tools" element={<Tools />} />
+                            <Route path="/tools/:id" element={<ToolDetail />} />
+                            <Route path="/users" element={<Users />} />
+                            <Route path="/revenue" element={<Analytics />} />
+                            <Route path="/settings" element={<Settings />} />
+
+                            <Route path="/" element={<Navigate to="/dashboard" replace />} />
+                        </Route>
                     </Route>
 
                     <Route path="*" element={<Navigate to="/" replace />} />

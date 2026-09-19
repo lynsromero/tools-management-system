@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import { api } from '../api/client';
 
 const AuthContext = createContext(null);
@@ -13,44 +13,7 @@ export function AuthProvider({ children }) {
         }
     });
 
-    useEffect(() => {
-        if (!token) {
-            return;
-        }
-
-        api.get('/me')
-            .then(({ data }) => {
-                setUser(data);
-                localStorage.setItem('user', JSON.stringify(data));
-            })
-            .catch(() => {
-                logout();
-            });
-    }, [token]);
-
-    const persist = (token, user) => {
-        localStorage.setItem('token', token);
-        localStorage.setItem('user', JSON.stringify(user));
-        setToken(token);
-        setUser(user);
-    };
-
-    const login = async (credentials) => {
-        const { data } = await api.post('/login', credentials);
-        persist(data.token, data.user);
-    };
-
-    const register = async (payload) => {
-        const { data } = await api.post('/register', payload);
-        persist(data.token, data.user);
-    };
-
-    const updateUser = (user) => {
-        localStorage.setItem('user', JSON.stringify(user));
-        setUser(user);
-    };
-
-    const logout = async () => {
+    const logout = useCallback(async () => {
         try {
             await api.post('/logout');
         } catch {
@@ -61,7 +24,46 @@ export function AuthProvider({ children }) {
         localStorage.removeItem('user');
         setToken(null);
         setUser(null);
-    };
+    }, []);
+
+    useEffect(() => {
+        if (!token) {
+            return;
+        }
+
+        api.get('/me')
+            .then(({ data }) => {
+                setUser(data);
+                localStorage.setItem('user', JSON.stringify(data));
+            })
+            .catch((err) => {
+                if (err.response?.status === 401) {
+                    logout();
+                }
+            });
+    }, [token, logout]);
+
+    const persist = useCallback((token, user) => {
+        localStorage.setItem('token', token);
+        localStorage.setItem('user', JSON.stringify(user));
+        setToken(token);
+        setUser(user);
+    }, []);
+
+    const login = useCallback(async (credentials) => {
+        const { data } = await api.post('/login', credentials);
+        persist(data.token, data.user);
+    }, [persist]);
+
+    const register = useCallback(async (payload) => {
+        const { data } = await api.post('/register', payload);
+        persist(data.token, data.user);
+    }, [persist]);
+
+    const updateUser = useCallback((user) => {
+        localStorage.setItem('user', JSON.stringify(user));
+        setUser(user);
+    }, []);
 
     return (
         <AuthContext.Provider

@@ -98,7 +98,7 @@ export default function Layout() {
         navigate('/login');
     };
 
-    const initials = (user?.name ?? '?')
+    const initials = (user?.name || user?.email || '?')
         .split(' ')
         .map((part) => part[0])
         .filter(Boolean)
