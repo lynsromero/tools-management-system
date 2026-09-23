@@ -23,11 +23,15 @@ function StatusBadge({ isActive }) {
 }
 
 export default function ToolTable({ tools, onDelete }) {
+    const readOnly = !onDelete;
+
     if (tools.length === 0) {
         return (
             <div className="rounded-xl border-2 border-dashed border-slate-200 bg-white p-16 text-center">
                 <p className="text-sm font-medium text-slate-400">
-                    No tools yet. Click “New tool” to create your first one.
+                    {readOnly
+                        ? 'No tools available right now.'
+                        : 'No tools yet. Click “New tool” to create your first one.'}
                 </p>
             </div>
         );
@@ -44,16 +48,22 @@ export default function ToolTable({ tools, onDelete }) {
                         <th className="px-5 py-3 text-left text-xs font-semibold tracking-wide text-slate-500 uppercase">Price</th>
                         <th className="px-5 py-3 text-left text-xs font-semibold tracking-wide text-slate-500 uppercase">Devices</th>
                         <th className="px-5 py-3 text-left text-xs font-semibold tracking-wide text-slate-500 uppercase">Status</th>
-                        <th className="px-5 py-3 text-right text-xs font-semibold tracking-wide text-slate-500 uppercase">Actions</th>
+                        {!readOnly && (
+                            <th className="px-5 py-3 text-right text-xs font-semibold tracking-wide text-slate-500 uppercase">Actions</th>
+                        )}
                     </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                     {tools.map((tool) => (
                         <tr key={tool.id} className="transition hover:bg-slate-50">
                             <td className="px-5 py-3.5">
-                                <Link to={`/tools/${tool.id}`} className="text-sm font-medium text-slate-900 hover:text-indigo-600">
-                                    {tool.name}
-                                </Link>
+                                {readOnly ? (
+                                    <p className="text-sm font-medium text-slate-900">{tool.name}</p>
+                                ) : (
+                                    <Link to={`/tools/${tool.id}`} className="text-sm font-medium text-slate-900 hover:text-indigo-600">
+                                        {tool.name}
+                                    </Link>
+                                )}
                                 <p className="text-xs text-slate-500">/{tool.slug}</p>
                             </td>
                             <td className="px-5 py-3.5"><TypeBadge type={tool.type} /></td>
@@ -61,15 +71,17 @@ export default function ToolTable({ tools, onDelete }) {
                             <td className="px-5 py-3.5 text-sm font-medium text-slate-900">${Number(tool.price).toFixed(2)}</td>
                             <td className="px-5 py-3.5 text-sm text-slate-600">{tool.device_limit}</td>
                             <td className="px-5 py-3.5"><StatusBadge isActive={tool.is_active} /></td>
-                            <td className="px-5 py-3.5 text-right">
-                                <button
-                                    type="button"
-                                    onClick={() => onDelete(tool.id)}
-                                    className="text-sm font-medium text-red-600 hover:text-red-700"
-                                >
-                                    Delete
-                                </button>
-                            </td>
+                            {!readOnly && (
+                                <td className="px-5 py-3.5 text-right">
+                                    <button
+                                        type="button"
+                                        onClick={() => onDelete(tool.id)}
+                                        className="text-sm font-medium text-red-600 hover:text-red-700"
+                                    >
+                                        Delete
+                                    </button>
+                                </td>
+                            )}
                         </tr>
                     ))}
                 </tbody>

@@ -2,8 +2,11 @@ import { useCallback, useEffect, useState } from 'react';
 import { api } from '../api/client';
 import ToolForm from '../components/ToolForm';
 import ToolTable from '../components/ToolTable';
+import { useAuth } from '../context/AuthContext';
 
 export default function Tools() {
+    const { user } = useAuth();
+    const isAdmin = user?.role === 'admin' || user?.role === 'super_admin';
     const [tools, setTools] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
@@ -14,7 +17,7 @@ export default function Tools() {
         setLoading(true);
 
         try {
-            const { data } = await api.get('/admin/tools');
+            const { data } = await api.get(isAdmin ? '/admin/tools' : '/tools');
             setTools(data.data ?? []);
             setError('');
         } catch {
@@ -22,7 +25,7 @@ export default function Tools() {
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [isAdmin]);
 
     useEffect(() => {
         loadTools();
@@ -56,14 +59,18 @@ export default function Tools() {
     return (
         <div>
             <div className="flex items-center justify-between">
-                <p className="text-sm text-slate-500">Create, edit, and manage the tools you sell.</p>
-                <button
-                    type="button"
-                    onClick={() => setShowModal(true)}
-                    className="rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
-                >
-                    New tool
-                </button>
+                <p className="text-sm text-slate-500">
+                    {isAdmin ? 'Create, edit, and manage the tools you sell.' : 'Browse the tools available to you.'}
+                </p>
+                {isAdmin && (
+                    <button
+                        type="button"
+                        onClick={() => setShowModal(true)}
+                        className="rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                    >
+                        New tool
+                    </button>
+                )}
             </div>
 
             {error && (
@@ -76,7 +83,7 @@ export default function Tools() {
                         Loading tools…
                     </div>
                 ) : (
-                    <ToolTable tools={tools} onDelete={handleDelete} />
+                    <ToolTable tools={tools} onDelete={isAdmin ? handleDelete : undefined} />
                 )}
             </div>
 

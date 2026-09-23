@@ -33,10 +33,13 @@ export default function App() {
                         <Route element={<Layout />}>
                             <Route path="/dashboard" element={<Dashboard />} />
                             <Route path="/tools" element={<Tools />} />
-                            <Route path="/tools/:id" element={<ToolDetail />} />
-                            <Route path="/users" element={<Users />} />
-                            <Route path="/revenue" element={<Analytics />} />
                             <Route path="/settings" element={<Settings />} />
+
+                            <Route element={<ProtectedRoute roles={['admin', 'super_admin']} />}>
+                                <Route path="/tools/:id" element={<ToolDetail />} />
+                                <Route path="/users" element={<Users />} />
+                                <Route path="/revenue" element={<Analytics />} />
+                            </Route>
 
                             <Route path="/" element={<Navigate to="/dashboard" replace />} />
                         </Route>

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api/client';
+import { useAuth } from '../context/AuthContext';
 
 const STATUS_STYLES = {
     active: 'bg-green-50 text-green-700 ring-green-600/20',
@@ -52,6 +53,8 @@ function formatDate(value) {
 }
 
 export default function Dashboard() {
+    const { user } = useAuth();
+    const isAdmin = user?.role === 'admin' || user?.role === 'super_admin';
     const [stats, setStats] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
@@ -60,15 +63,27 @@ export default function Dashboard() {
         setLoading(true);
 
         try {
-            const { data } = await api.get('/admin/dashboard/stats');
-            setStats(data.data ?? {});
+            if (isAdmin) {
+                const { data } = await api.get('/admin/dashboard/stats');
+                setStats(data.data ?? {});
+            } else {
+                const [tools, credits] = await Promise.all([
+                    api.get('/tools'),
+                    api.get('/me/credits'),
+                ]);
+
+                setStats({
+                    available_tools: (tools.data.data ?? []).length,
+                    credit_balance: credits.data.balance ?? 0,
+                });
+            }
             setError('');
         } catch {
             setError('Failed to load dashboard stats.');
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [isAdmin]);
 
     useEffect(() => {
         loadStats();
@@ -89,6 +104,50 @@ export default function Dashboard() {
                 >
                     Retry
                 </button>
+            </div>
+        );
+    }
+
+    if (!isAdmin) {
+        return (
+            <div className="space-y-6">
+                <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm sm:flex sm:items-center sm:justify-between">
+                    <div>
+                        <h2 className="text-lg font-semibold text-slate-900">Welcome back, {user?.name ?? 'there'}</h2>
+                        <p className="mt-1 text-sm text-slate-500">
+                            Browse available tools, manage your account, and track your referral credits.
+                        </p>
+                    </div>
+                    <div className="mt-4 flex gap-3 sm:mt-0">
+                        <Link
+                            to="/store"
+                            className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-700"
+                        >
+                            Browse store
+                        </Link>
+                        <Link
+                            to="/settings"
+                            className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+                        >
+                            Settings
+                        </Link>
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+                    <StatCard
+                        label="Available tools"
+                        value={stats?.available_tools ?? 0}
+                        colors="bg-emerald-50 text-emerald-600"
+                        icon={<path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />}
+                    />
+                    <StatCard
+                        label="Credit balance"
+                        value={formatAmount(stats?.credit_balance ?? 0)}
+                        colors="bg-indigo-50 text-indigo-600"
+                        icon={<path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />}
+                    />
+                </div>
             </div>
         );
     }

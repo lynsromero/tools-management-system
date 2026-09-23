@@ -32,6 +32,7 @@ const navigation = [
     {
         name: 'Users',
         to: '/users',
+        adminOnly: true,
         icon: (
             <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} aria-hidden="true">
                 <path
@@ -45,6 +46,7 @@ const navigation = [
     {
         name: 'Analytics',
         to: '/revenue',
+        adminOnly: true,
         icon: (
             <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} aria-hidden="true">
                 <path
@@ -91,6 +93,8 @@ export default function Layout() {
     const navigate = useNavigate();
     const location = useLocation();
     const avatarUrl = useAvatarUrl(user);
+    const isAdmin = user?.role === 'admin' || user?.role === 'super_admin';
+    const visibleNavigation = navigation.filter((item) => !item.adminOnly || isAdmin);
     const title = titles[location.pathname] ?? 'Dashboard';
 
     const handleLogout = async () => {
@@ -120,7 +124,7 @@ export default function Layout() {
                 </div>
 
                 <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
-                    {navigation.map((item) => (
+                    {visibleNavigation.map((item) => (
                         <NavLink
                             key={item.to}
                             to={item.to}
