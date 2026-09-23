@@ -231,4 +231,152 @@ class ExtensionTest extends TestCase
         $this->assertFalse($zip->getFromName('config.json'));
         $zip->close();
     }
+
+    public function test_purchaser_can_download_extension_for_supported_browser(): void
+    {
+        $purchaser = User::factory()->create();
+        $tool = Tool::factory()->create([
+            'type' => Tool::TYPE_EXTENSION,
+            'extension_meta' => [
+                'browsers' => ['chrome', 'firefox'],
+                'manifest_version' => 3,
+                'permissions' => ['storage'],
+            ],
+        ]);
+        $this->makeExtZipFile($tool);
+        $token = $this->buy($tool, $purchaser);
+
+        $response = $this->actingAs($purchaser, 'sanctum')
+            ->get("/api/tools/{$tool->id}/extension/firefox")
+            ->assertOk()
+            ->assertDownload("{$tool->slug}-firefox.zip");
+
+        $tmp = tempnam(sys_get_temp_dir(), 'extdl');
+        file_put_contents($tmp, $response->streamedContent());
+        $zip = new ZipArchive;
+        $this->assertTrue($zip->open($tmp) === true);
+
+        $config = json_decode($zip->getFromName('config.json'), true);
+        $this->assertSame($token, $config['token']);
+        $this->assertSame($tool->id, $config['tool_id']);
+
+        $manifest = json_decode($zip->getFromName('manifest.json'), true);
+        $this->assertSame(2, $manifest['manifest_version']);
+
+        $zip->close();
+        @unlink($tmp);
+    }
+
+    public function test_extension_download_requires_active_purchase(): void
+    {
+        $user = User::factory()->create();
+        $tool = Tool::factory()->create([
+            'type' => Tool::TYPE_EXTENSION,
+            'extension_meta' => ['browsers' => ['chrome'], 'manifest_version' => 3, 'permissions' => []],
+        ]);
+        $this->makeExtZipFile($tool);
+
+        $this->actingAs($user, 'sanctum')
+            ->get("/api/tools/{$tool->id}/extension/chrome")
+            ->assertStatus(403)
+            ->assertJson(['message' => 'payment_required']);
+    }
+
+    public function test_extension_download_rejects_unlisted_browser(): void
+    {
+        $purchaser = User::factory()->create();
+        $tool = Tool::factory()->create([
+            'type' => Tool::TYPE_EXTENSION,
+            'extension_meta' => ['browsers' => ['chrome'], 'manifest_version' => 3, 'permissions' => []],
+        ]);
+        $this->makeExtZipFile($tool);
+        $this->buy($tool, $purchaser);
+
+        $this->actingAs($purchaser, 'sanctum')
+            ->get("/api/tools/{$tool->id}/extension/firefox")
+            ->assertStatus(422);
+    }
+
+    public function test_extension_download_returns_404_for_non_extension_tool(): void
+    {
+        $purchaser = User::factory()->create();
+        $tool = Tool::factory()->create([
+            'type' => Tool::TYPE_DESKTOP,
+            'extension_meta' => null,
+        ]);
+        $this->makeExtZipFile($tool);
+        $this->buy($tool, $purchaser);
+
+        $this->actingAs($purchaser, 'sanctum')
+            ->get("/api/tools/{$tool->id}/extension/chrome")
+            ->assertNotFound();
+    }
+
+    public function test_extension_download_requires_authentication(): void
+    {
+        $tool = Tool::factory()->create([
+            'type' => Tool::TYPE_EXTENSION,
+            'extension_meta' => ['browsers' => ['chrome'], 'manifest_version' => 3, 'permissions' => []],
+        ]);
+        $this->makeExtZipFile($tool);
+
+        $this->getJson("/api/tools/{$tool->id}/extension/chrome")
+            ->assertUnauthorized();
+    }
+
+    public function test_extension_download_is_rate_limited(): void
+    {
+        $purchaser = User::factory()->create();
+        $tool = Tool::factory()->create([
+            'type' => Tool::TYPE_EXTENSION,
+            'extension_meta' => ['browsers' => ['chrome'], 'manifest_version' => 3, 'permissions' => []],
+        ]);
+        $this->makeExtZipFile($tool);
+        $this->buy($tool, $purchaser);
+
+        for ($i = 0; $i < 10; $i++) {
+            $this->actingAs($purchaser, 'sanctum')
+                ->get("/api/tools/{$tool->id}/extension/chrome")
+                ->assertOk();
+        }
+
+        $this->actingAs($purchaser, 'sanctum')
+            ->get("/api/tools/{$tool->id}/extension/chrome")
+            ->assertStatus(429);
+    }
+
+    public function test_extension_download_returns_404_when_no_file(): void
+    {
+        $purchaser = User::factory()->create();
+        $tool = Tool::factory()->create([
+            'type' => Tool::TYPE_EXTENSION,
+            'extension_meta' => ['browsers' => ['chrome'], 'manifest_version' => 3, 'permissions' => []],
+        ]);
+        $this->buy($tool, $purchaser);
+
+        $this->actingAs($purchaser, 'sanctum')
+            ->get("/api/tools/{$tool->id}/extension/chrome")
+            ->assertNotFound();
+    }
+
+    public function test_extension_download_returns_404_for_non_zip_file(): void
+    {
+        $purchaser = User::factory()->create();
+        $tool = Tool::factory()->create([
+            'type' => Tool::TYPE_EXTENSION,
+            'extension_meta' => ['browsers' => ['chrome'], 'manifest_version' => 3, 'permissions' => []],
+        ]);
+        ToolFile::query()->create([
+            'tool_id' => $tool->id,
+            'file_path' => "tools/{$tool->id}/setup.exe",
+            'file_type' => 'exe',
+            'version' => '1.0.0',
+            'changelog' => null,
+        ]);
+        $this->buy($tool, $purchaser);
+
+        $this->actingAs($purchaser, 'sanctum')
+            ->get("/api/tools/{$tool->id}/extension/chrome")
+            ->assertNotFound();
+    }
 }

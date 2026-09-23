@@ -45,6 +45,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/tools/{tool}/demo', [DemoController::class, 'show']);
     Route::get('/tools/{tool}/download', [DownloadController::class, 'download'])->middleware('throttle:10,10');
     Route::get('/tools/{tool}/download/config', [DownloadController::class, 'config']);
+    Route::get('/tools/{tool}/extension/{browser}', [DownloadController::class, 'extension'])
+        ->where('browser', 'chrome|firefox|edge')
+        ->middleware('throttle:10,10');
 
     Route::get('/user', function (Request $request) {
         return $request->user();

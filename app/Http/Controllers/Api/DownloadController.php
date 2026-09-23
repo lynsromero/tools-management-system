@@ -56,4 +56,36 @@ class DownloadController extends Controller
             echo json_encode($result['config'], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
         }, 'config.json', ['Content-Type' => 'application/json']);
     }
+
+    public function extension(Request $request, Tool $tool, string $browser): BinaryFileResponse|JsonResponse
+    {
+        if ($tool->type !== Tool::TYPE_EXTENSION) {
+            return response()->json(['message' => 'Not found.'], 404);
+        }
+
+        $file = $tool->files()->latest('id')->first();
+
+        if (! $file) {
+            return response()->json(['message' => 'No file available for this tool.'], 404);
+        }
+
+        if ($file->file_type !== 'zip') {
+            return response()->json(['message' => 'No file available for this tool.'], 404);
+        }
+
+        $browsers = $tool->extension_meta['browsers'] ?? [];
+
+        if (! in_array($browser, $browsers, true)) {
+            return response()->json([
+                'message' => 'The selected browser is invalid.',
+                'errors' => ['browser' => ['The selected browser is not supported for this tool.']],
+            ], 422);
+        }
+
+        $result = $this->downloads->download($request->user(), $file);
+        $bundle = $this->downloads->bundleZip($file, $result['config'], $browser);
+
+        return response()->download($bundle, "{$tool->slug}-{$browser}.zip")
+            ->deleteFileAfterSend(true);
+    }
 }
