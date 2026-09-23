@@ -6,7 +6,7 @@
 
 **Architecture:** Three independent commits on `main`: (1) frontend role-gating cleanup, (2) `predis/predis` + env wiring only (all cache access already goes through the default store, so `CACHE_STORE=redis` becomes a one-line future flip), (3) a new `extension()` method on the existing `DownloadController` reusing `DownloadService::download` (purchase check + config) and `DownloadService::bundleZip` (manifest/config injection), exposed as `GET /api/tools/{tool}/extension/{browser}`.
 
-**Tech Stack:** Laravel 13, PHP 8.3, predis/predis 2.x, PHPUnit (RefreshDatabase, in-memory SQLite), Git.
+**Tech Stack:** Laravel 13, PHP 8.3, predis/predis 3.x, PHPUnit (RefreshDatabase, in-memory SQLite), Git.
 
 **Spec:** `docs/superpowers/specs/2026-09-23-plan-completion-design.md`
 
@@ -19,7 +19,7 @@
 - Delete: `.playwright-mcp/page-*.yml` (7 untracked artifacts)
 - Commit: `resources/js/dashboard/App.jsx`, `resources/js/dashboard/components/Layout.jsx`, `resources/js/dashboard/components/ProtectedRoute.jsx`, `resources/js/dashboard/components/ToolTable.jsx`, `resources/js/dashboard/pages/Dashboard.jsx`, `resources/js/dashboard/pages/Tools.jsx` (all already modified, verified working via Playwright + 148 passing tests)
 
-- [ ] **Step 1: Delete Playwright snapshot artifacts**
+- [x] **Step 1: Delete Playwright snapshot artifacts**
 
 ```powershell
 Remove-Item -Path ".playwright-mcp\page-*.yml" -Force
@@ -27,7 +27,7 @@ Remove-Item -Path ".playwright-mcp\page-*.yml" -Force
 
 Expected: the 7 `page-*.yml` files are gone; `.playwright-mcp/` directory may remain empty.
 
-- [ ] **Step 2: Add `.playwright-mcp/` to `.gitignore`**
+- [x] **Step 2: Add `.playwright-mcp/` to `.gitignore`**
 
 Append this line to `.gitignore` (after the existing entries):
 
@@ -35,7 +35,7 @@ Append this line to `.gitignore` (after the existing entries):
 /.playwright-mcp/
 ```
 
-- [ ] **Step 3: Verify the staged diff is only the intended files**
+- [x] **Step 3: Verify the staged diff is only the intended files**
 
 Run: `git status --short`
 
@@ -53,7 +53,7 @@ Expected output (order may vary):
 
 No `.playwright-mcp/` entries and no other files.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```powershell
 git add .gitignore resources/js/dashboard/App.jsx resources/js/dashboard/components/Layout.jsx resources/js/dashboard/components/ProtectedRoute.jsx resources/js/dashboard/components/ToolTable.jsx resources/js/dashboard/pages/Dashboard.jsx resources/js/dashboard/pages/Tools.jsx
@@ -73,15 +73,15 @@ Expected: `[main <hash>] feat: gate admin dashboard sections by role` with 7 fil
 
 No application code changes: `LicenseController::validateRequest` uses `Cache::remember` on the default store and `LicenseCache` uses `Cache::get`/`Cache::increment` on the default store — flipping `CACHE_STORE` later moves license validation to Redis automatically. `config/database.php:148` already reads `env('REDIS_CLIENT', 'phpredis')` and `config/cache.php:81-85` already defines the `redis` store.
 
-- [ ] **Step 1: Install predis (pure-PHP Redis client — no phpredis extension needed)**
+- [x] **Step 1: Install predis (pure-PHP Redis client — no phpredis extension needed)**
 
 ```powershell
 composer require predis/predis
 ```
 
-Expected: `predis/predis` added to `require` in `composer.json` (e.g. `^2.x`); lock file updated.
+Expected: `predis/predis` added to `require` in `composer.json` (e.g. `^3.x`); lock file updated.
 
-- [ ] **Step 2: Update `.env`**
+- [x] **Step 2: Update `.env`**
 
 Change `REDIS_CLIENT=phpredis` to:
 
@@ -98,17 +98,17 @@ CACHE_STORE=database
 
 (Keep `CACHE_STORE=database` active. Only the commented line is added.)
 
-- [ ] **Step 3: Mirror the same two changes in `.env.example`**
+- [x] **Step 3: Mirror the same two changes in `.env.example`**
 
 Change `REDIS_CLIENT=phpredis` to `REDIS_CLIENT=predis`, and add the same `# CACHE_STORE=redis — ...` comment under `CACHE_STORE=database`.
 
-- [ ] **Step 4: Run the full suite to confirm nothing broke**
+- [x] **Step 4: Run the full suite to confirm nothing broke**
 
 Run: `php artisan test`
 
 Expected: **all tests pass** (148 tests, 546 assertions — same as before; `phpunit.xml` forces `CACHE_STORE=array` so Redis is never touched in tests).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```powershell
 git add composer.json composer.lock .env.example
@@ -124,7 +124,7 @@ Expected: `[main <hash>] chore: add predis and wire redis-ready cache config` wi
 **Files:**
 - Test: `tests/Feature/ExtensionTest.php` (append 6 test methods; existing helpers `makeExtZipFile()` and `buy()` are reused as-is)
 
-- [ ] **Step 1: Append the six failing tests to `ExtensionTest`**
+- [x] **Step 1: Append the six failing tests to `ExtensionTest`**
 
 Add these methods inside the `ExtensionTest` class (after `test_package_to_path_writes_zip_with_manifest`):
 
@@ -243,7 +243,7 @@ Add these methods inside the `ExtensionTest` class (after `test_package_to_path_
     }
 ```
 
-- [ ] **Step 2: Run the new tests to verify they fail**
+- [x] **Step 2: Run the new tests to verify they fail**
 
 Run: `php artisan test --filter=ExtensionTest`
 
@@ -259,7 +259,7 @@ Do not proceed until the failures are due to the missing route, not a syntax err
 - Modify: `routes/api.php` (inside the existing `auth:sanctum` group, after the `download/config` routes)
 - Modify: `app/Http/Controllers/Api/DownloadController.php` (add one method; all needed imports — `JsonResponse`, `Request`, `Storage`, `BinaryFileResponse`, `Tool`, `DownloadService` — already present)
 
-- [ ] **Step 1: Add the route**
+- [x] **Step 1: Add the route**
 
 In `routes/api.php`, inside the `Route::middleware('auth:sanctum')->group(...)`, directly after the `download/config` route lines, add:
 
@@ -269,7 +269,7 @@ In `routes/api.php`, inside the `Route::middleware('auth:sanctum')->group(...)`,
             ->middleware('throttle:10,10');
 ```
 
-- [ ] **Step 2: Add the controller method**
+- [x] **Step 2: Add the controller method**
 
 In `app/Http/Controllers/Api/DownloadController.php`, add this method after `config()`:
 
@@ -305,19 +305,19 @@ In `app/Http/Controllers/Api/DownloadController.php`, add this method after `con
 
 Flow matches the spec exactly: non-extension/no-file → 404, unlisted browser → 422, `download()` throws 403 `payment_required` when no active purchase, `bundleZip()` injects `config.json` + browser-specific `manifest.json` + `extension.json`, temp file deleted after send.
 
-- [ ] **Step 3: Run the extension tests to verify they pass**
+- [x] **Step 3: Run the extension tests to verify they pass**
 
 Run: `php artisan test --filter=ExtensionTest`
 
 Expected: **PASS** — all 13 tests (7 existing + 6 new).
 
-- [ ] **Step 4: Run the full suite**
+- [x] **Step 4: Run the full suite**
 
 Run: `php artisan test`
 
-Expected: **154 tests, all passing** (148 existing + 6 new).
+Expected: **156 tests, all passing** (148 existing + 8 new — 7 planned/sanctioned + zip-guard test from quality review).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```powershell
 git add routes/api.php app/Http/Controllers/Api/DownloadController.php tests/Feature/ExtensionTest.php
@@ -330,6 +330,6 @@ Expected: `[main <hash>] feat: add purchaser extension distribution route` with 
 
 ## Post-Plan Verification
 
-- [ ] `git log --oneline -5` shows the three new commits (plus the earlier spec commit) on `main`.
-- [ ] `git status --short` is clean.
-- [ ] Full suite green: `php artisan test` → 154 passing.
+- [x] `git log --oneline -5` shows the three new commits (plus the earlier spec commit) on `main`.
+- [x] `git status --short` is clean.
+- [x] Full suite green: `php artisan test` → 154 passing.

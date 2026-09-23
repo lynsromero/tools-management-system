@@ -95,3 +95,12 @@ GET /api/tools/{tool}/extension/{browser}
 - Storefront UI for per-browser download buttons (route only; can be a follow-up).
 - Extension self-signing.
 - Installing a Redis server (WSL/Memurai) — rejected in favor of Option A.
+
+## Errata (post-implementation)
+
+Approved during execution by reviewer prescriptions; commits beyond the original three:
+
+- `8725a9b` — removed 63 previously-tracked Playwright snapshot files (§1 originally scoped only the untracked artifacts; gitignore alone cannot untrack files).
+- `aef93df` — `config/database.php` Redis client default `'phpredis'` → `'predis'` (§2 said "no application code changes"; this config default was required so the one-line flip works on machines with older `.env` files).
+- Extension tests: 8 new (spec table's 6 + reviewer-sanctioned no-file-404 + non-zip-404 zip guard added by quality review); suite landed at 156 tests, not the plan's 154.
+- `c255233` — plan errata: red-phase failures arrive as catch-all 200s, not 404s.
