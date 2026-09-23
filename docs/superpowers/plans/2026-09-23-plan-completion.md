@@ -247,7 +247,7 @@ Add these methods inside the `ExtensionTest` class (after `test_package_to_path_
 
 Run: `php artisan test --filter=ExtensionTest`
 
-Expected: **FAIL** — the route does not exist yet, so tests expecting 200/403/422/401/429 receive 404. (`test_extension_download_returns_404_for_non_extension_tool` may pass coincidentally for the same reason; that is acceptable at this stage — it will exercise real logic after Task 4.)
+Expected: **FAIL** — the route does not exist yet, so tests expecting 200/403/422/401/429 receive **200** (the SPA catch-all `Route::get('/{any}', ...)` in `routes/web.php` intercepts the non-existent API route and serves the app view) — not 404 as first drafted; all six new tests fail, including the non-extension 404 test (it also gets the catch-all 200). Failures are still due to the missing route, which satisfies the red-phase gate. No syntax/parse errors; the original 7 tests keep passing.
 
 Do not proceed until the failures are due to the missing route, not a syntax error.
 
